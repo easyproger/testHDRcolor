@@ -10,7 +10,7 @@ import MetalKit
 import MetalPerformanceShaders
 
 class TestMTK: MTKView {
-    
+    var lutTexture: MTLTexture!
     private var pixelVideoFormat: OSType = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
     
     private var textureCache: CVMetalTextureCache?
@@ -105,10 +105,33 @@ class TestMTK: MTKView {
             bufferLayerVertex = makeCoordsBuffer(data: bufferDataLayerPortrait)
             
             _ = device.map { CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, $0, nil, &textureCache) }
-            
+            lutTexture = newTexture(UIImage(named: "candidate1")!)
         }
     }
-    
+    func newTexture(_ image: UIImage) -> MTLTexture {
+        let imageRef = image.cgImage!
+        let width = imageRef.width
+        let height = imageRef.height
+        let colorSpace = CGColorSpaceCreateDeviceRGB() //s色域
+        let rawData = calloc(height * width * 4, MemoryLayout<UInt8>.size) //图片存储数据的指针
+        let bitsPerComponent = 8 //指定每一个像素中组件的位数(bits，二进制位)。例如：对于32位格式的RGB色域，你需要为每一个部分指定8位
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let context = CGContext(data: rawData,
+                  width: width,
+                  height: height,
+                  bitsPerComponent: bitsPerComponent,
+                  bytesPerRow: bytesPerRow,
+                  space: colorSpace,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+        context?.draw(imageRef, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: width, height: height, mipmapped: false)
+        let texture = device?.makeTexture(descriptor: textureDescriptor)
+        let region = MTLRegionMake2D(0, 0, width, height)
+        texture?.replace(region: region, mipmapLevel: 0, withBytes: rawData!, bytesPerRow: bytesPerRow)
+        free(rawData)
+        return texture!
+    }
     init(frame frameRect: CGRect, device: MTLDevice?, url: URL) {
         super.init(frame: frameRect, device: device)
         
@@ -165,9 +188,11 @@ class TestMTK: MTKView {
                 guard let secondPlane = createTexture(fromPixelBuffer: pixelBuffer, pixelFormat:.rg8Unorm, planeIndex:1) else { return }
                 encoder.setFragmentTexture(firstPlane, index: 0)
                 encoder.setFragmentTexture(secondPlane, index: 1)
+                encoder.setFragmentTexture(lutTexture, index: 2)
             default:
                 guard let firstPlane = createTexture(fromPixelBuffer: pixelBuffer, pixelFormat:.bgra8Unorm, planeIndex:0) else { return }
                 encoder.setFragmentTexture(firstPlane, index: 0)
+                encoder.setFragmentTexture(lutTexture, index: 1)
                 break
             }
             

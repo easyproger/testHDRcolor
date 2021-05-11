@@ -50,7 +50,7 @@ class VideoMediaCacheItem: NSObject, AVPlayerItemOutputPullDelegate {
         playerView.backgroundColor = .green
         this.playerView = playerView
         if !this.added {
-            superView.addSubview(playerView)
+//            superView.addSubview(playerView)
             this.added = true
         }
         
@@ -86,6 +86,6 @@ class VideoMediaCacheItem: NSObject, AVPlayerItemOutputPullDelegate {
     func pixelBuffer(time: CMTime, complete: ((CVImageBuffer?) -> Void)? = nil) -> CVImageBuffer? {
         guard let player = player else { return nil }
         guard let videoOutput = self.videoOutput else { return nil }
-        return videoOutput.copyPixelBuffer(forItemTime: player.currentTime(), itemTimeForDisplay: nil)
+        return videoOutput.copyPixelBuffer(forItemTime: .zero, itemTimeForDisplay: nil)
     }
 }

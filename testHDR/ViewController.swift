@@ -15,7 +15,7 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        guard let fileURL = Bundle.main.url(forResource: "IMG_0423", withExtension: "MOV") else { return }
+        guard let fileURL = Bundle.main.url(forResource: "111", withExtension: "MOV") else { return }
         metalView = TestMTK(frame: .zero, device: MTLCreateSystemDefaultDevice(), url: fileURL)
         metalView?.backgroundColor = .red
         metalView!.translatesAutoresizingMaskIntoConstraints = false
