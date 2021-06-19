@@ -11,7 +11,7 @@ import MetalPerformanceShaders
 
 class TestMTK: MTKView {
     var lutTexture: MTLTexture!
-    private var pixelVideoFormat: OSType = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+    private var pixelVideoFormat: OSType = kCVPixelFormatType_32BGRA
     
     private var textureCache: CVMetalTextureCache?
     var bufferLayerVertex: MTLBuffer?
@@ -62,7 +62,9 @@ class TestMTK: MTKView {
             guard let vertex = library?.makeFunction(name: "vertexDefault") else { return }
             
             switch pixelVideoFormat {
-            case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
+            case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                 kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                 kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
                 guard let fragment = library?.makeFunction(name: "capturedImageFragmentShader") else { return }
                 pipelineDescriptor.fragmentFunction = fragment
             default:
@@ -105,14 +107,34 @@ class TestMTK: MTKView {
             bufferLayerVertex = makeCoordsBuffer(data: bufferDataLayerPortrait)
             
             _ = device.map { CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, $0, nil, &textureCache) }
-            lutTexture = newTexture(UIImage(named: "candidate1")!)
+            
+            
+            guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return }
+            
+            lutTexture = newTexture(UIImage(named: "itur2020HLGtoSRGB")!, colorSpace: colorSpace)
+            
+            
+//            if let photoImage = photo.image  {
+//                            let inputImage = CIImage(image: photoImage)
+//                            let filteredImage = inputImage.applyingFilter("CIColorCube")
+//                            let filteredExtent = filteredImage.extent
+//
+//                            /* hoping this will return a CGImage */
+//                            let renderedImage = context.createCGImage(filteredImage, from: filteredExtent)
+//                            photo.image =  UIImage(cgImage: renderedImage)
+//                        }
+//
+            
         }
     }
-    func newTexture(_ image: UIImage) -> MTLTexture {
+    
+    
+    
+    
+    func newTexture(_ image: UIImage, colorSpace: CGColorSpace) -> MTLTexture {
         let imageRef = image.cgImage!
         let width = imageRef.width
         let height = imageRef.height
-        let colorSpace = CGColorSpaceCreateDeviceRGB() //s色域
         let rawData = calloc(height * width * 4, MemoryLayout<UInt8>.size) //图片存储数据的指针
         let bitsPerComponent = 8 //指定每一个像素中组件的位数(bits，二进制位)。例如：对于32位格式的RGB色域，你需要为每一个部分指定8位
         let bytesPerPixel = 4
@@ -146,7 +168,7 @@ class TestMTK: MTKView {
     }
     
     private func configureWithDevice(_ device : MTLDevice) {
-        self.clearColor = MTLClearColor.init(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+        self.clearColor = MTLClearColor.init(red: 0.0, green: 1.0, blue: 0.0, alpha: 1.0)
         self.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         self.framebufferOnly = false
         self.colorPixelFormat = .bgra8Unorm
@@ -163,11 +185,13 @@ class TestMTK: MTKView {
         let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, planeIndex)
         
         var texture: CVMetalTexture? = nil
+        
+        CVPixelBufferLockBaseAddress(pixelBuffer, CVPixelBufferLockFlags.init(rawValue: 0))
         let status = CVMetalTextureCacheCreateTextureFromImage(nil, textureCache!, pixelBuffer, nil, pixelFormat, width, height, planeIndex, &texture)
         if status == kCVReturnSuccess {
             mtlTexture = CVMetalTextureGetTexture(texture!)
         }
-        
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, CVPixelBufferLockFlags(rawValue: 0))
         return mtlTexture
     }
     
@@ -183,7 +207,9 @@ class TestMTK: MTKView {
             encoder.setVertexBuffer(bufferLayerVertex, offset: 0, index: 0)
             
             switch pixelVideoFormat {
-            case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
+            case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+                 kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                 kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
                 guard let firstPlane = createTexture(fromPixelBuffer: pixelBuffer, pixelFormat:.r8Unorm, planeIndex:0) else { return }
                 guard let secondPlane = createTexture(fromPixelBuffer: pixelBuffer, pixelFormat:.rg8Unorm, planeIndex:1) else { return }
                 encoder.setFragmentTexture(firstPlane, index: 0)
